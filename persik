@@ -1,0 +1,69 @@
+#!/usr/bin/perl
+
+# persik is a portmanteau of the Norwegian phrase 'perfekt sikkerhet', meaning 'perfect security'.
+# persik is a one-time pad generator/encrypter/decrypter implemented in perl around Base64.
+# persik 1.0 by Samuel Baldwin (samuel@staticfree.info) released 2009-06-05
+
+use strict;
+#use warnings;
+use MIME::Base64 qw/encode_base64 decode_base64/;
+use Getopt::Long;
+use Crypt::Random qw/makerandom_itv/;
+
+# Base64 makes an unmanageable mess if you don't either bother with 76-byte strings with a
+# newline delimiter, or just give it the whole file at once. I'm opting for the simpler 
+# solution by slurping the whole file.
+local $/;
+
+my (%table, %revtable);
+my $i = 0;
+foreach my $c ("A".."Z", "a".."z", 0..9, '+', '/', '=') {
+	$revtable{"$i"} = $c;
+	$table{"$c"} = $i++;
+}
+
+my ($encrypt, $decrypt, $generate);
+GetOptions('encrypt' => \$encrypt, 'decrypt' => \$decrypt, 'generate' => \$generate);
+return if ($encrypt and $decrypt);
+
+if ($encrypt or $decrypt) {
+	my $input = shift @ARGV;
+	my $keyfile = shift @ARGV;
+	open(DATA, $input) or die "Could not open $input: $!";
+	open(KEY, $keyfile) or die "Could not open $keyfile: $!";
+
+	my ($databuffer, $keybuffer);
+	my $databuffer = <DATA>;
+	my $keybuffer = <KEY>;
+		
+	my @keys = split(//, $keybuffer);
+	my @line = qw//;
+
+	if ($encrypt) {
+		my @data = split(//, encode_base64($databuffer, ''));
+		for (my $i = 0; $i <= $#data; $i++) {
+			if (!($i % 76) && ($i != 0)) {
+				push(@line, "\n");
+			}
+			push(@line, $revtable{($table{$data[$i]} + $table{$keys[$i]}) % 64});
+		}
+		print join('', @line);
+	} elsif ($decrypt) {
+		$databuffer =~ s/[\n\s]//g;
+		my @data = split(//, $databuffer);
+		my $offset = 0;
+		for (my $i = 0; $i <= $#data; $i++) {
+			push(@line, $revtable{($table{$data[$i]} - $table{$keys[$i]}) % 64});
+		}
+		print decode_base64(join('', @line));
+	}
+
+	close(DATA);
+	close(KEY);
+} elsif ($generate) {
+	my $pad = shift @ARGV;
+	my $lines = shift @ARGV;
+	open(PAD, '>' . $pad) or die "Could not open $pad: $!";
+	print PAD $revtable{makerandom_itv(Lower => 0, Upper => 64)} foreach (1..($lines * 76));
+	close(PAD);
+}
