@@ -1,0 +1,6 @@
+PERSIK
+persik is a portmanteau of the Norwegian phrase 'perfekt sikkerhet', meaning 'perfect security'.
+persik is a one-time pad generator/encrypter/decrypter implemented in perl around Base64.
+persik 1.0 by Samuel Baldwin (samuel@staticfree.info) released 2009-06-05
+
+(sam is my nephew)
